@@ -11,7 +11,7 @@ var {
   Animated,
   StyleSheet,
   Dimensions,
-  TouchableHighlight,
+  TouchableOpacity,
 } = require('react-native');
 
 var WINDOW_HEIGHT = Dimensions.get('window').height;
@@ -19,6 +19,7 @@ var WINDOW_HEIGHT = Dimensions.get('window').height;
 var ParallaxImage = React.createClass({
   propTypes: {
     onPress:        React.PropTypes.func,
+    overlayContent: React.PropTypes.func,
     scrollY:        React.PropTypes.object,
     parallaxFactor: React.PropTypes.number,
     imageStyle:     Image.propTypes.style,
@@ -34,6 +35,7 @@ var ParallaxImage = React.createClass({
   getInitialState: function() {
     this.isLayoutStale = true;
     return {
+      offsetMeassured: false,
       offset: 0,
       height: 0,
       width:  0,
@@ -58,18 +60,23 @@ var ParallaxImage = React.createClass({
   },
 
   handleMeasure: function(ox, oy, width, height, px, py) {
+    // console.warn('ox:'+ox, 'oy:'+oy, 'width:'+width, 'height:'+height, 'px:'+px, 'py:'+py);
     this.isLayoutStale = false;
-    this.setState({
-      offset: py,
-      height,
-      width,
-    });
+    if (!this.state.offsetMeassured) {
+      this.setState({
+        offsetMeassured: true,
+        offset: py,
+        height,
+        width,
+      });
+    }
   },
 
   render: function() {
     var { offset, width, height } = this.state;
     var {
       onPress,
+      overlayContent,
       scrollY,
       parallaxFactor,
       style,
@@ -81,7 +88,8 @@ var ParallaxImage = React.createClass({
     var parallaxPadding = height * parallaxFactor;
 
     var parallaxStyle = {
-      height: height + parallaxPadding * 2,
+      // height: height - parallaxPadding * 1.2,
+      height: 470,
       width: width,
     };
     if(scrollY) {
@@ -91,7 +99,7 @@ var ParallaxImage = React.createClass({
             inputRange:   [offset - height, offset + WINDOW_HEIGHT + height],
             outputRange:  [-parallaxPadding, parallaxPadding]
           }),
-          extrapolate:  'clamp',
+          // extrapolate:  'clamp',
         },
       ];
     } else {
@@ -100,31 +108,30 @@ var ParallaxImage = React.createClass({
       ];
     }
     var content = (
-      <View
+      <TouchableOpacity
         ref={component => this._container = component}
+        activeOpacity={0.6}
         style={[style, styles.container]}
         onLayout={this.handleLayout}
+        onPress={onPress}
       >
         <Animated.Image
           {...props}
-          style={[imageStyle, parallaxStyle]}
+          style={imageStyle, parallaxStyle}
           pointerEvents="none"
         />
         <View style={[styles.overlay, overlayStyle]}>
-          {children}
+          {overlayContent && overlayContent()}
         </View>
-      </View>
+      </TouchableOpacity>
     );
-    // Since we can't allow nested Parallax.Images, we supply this shorthand to wrap a touchable
-    // around the element
-    if(onPress) {
-      return (
-        <TouchableHighlight ref={component => this._touchable = component} onPress={onPress}>
-          {content}
-        </TouchableHighlight>
-      );
-    }
-    return content;
+    // Dummy touchable to make it work on Android
+    return (
+      <TouchableOpacity ref={component => this._touchable = component} activeOpacity={1}>
+        {content}
+        {children}
+      </TouchableOpacity>
+    );
   }
 });
 
